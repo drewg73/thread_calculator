@@ -4,13 +4,21 @@ def truncate(f, n):
   return floor(f * 10 ** n) / 10 ** n
 
 class Threads():
-  def __init__(self, basic_diameter, thread_pitch, thread_class, thread_designation=None):
+  def __init__(self, basic_diameter, thread_pitch, thread_class, thread_designation=None, thread_engaugement=None):
     self.units = True # True if imperial, False is metric
     self._basic_diameter = basic_diameter
-    self._thread_pitch = thread_pitch
+    if self.unit:
+      self._thread_pitch = 1 / thread_pitch
+    else:
+      self._thread_pitch = thread_pitch
+    if thread_engagement:
+      self._thread_engagement = thread_engagement
+    else:
+      self._thread_engagement = 1.5 * basic_diameter
     self._thread_class = thread_class
     self._thread_designation = thread_designation
     self._height = 0.86603 * (1 / self._thread_pitch)
+    self._Td2_2A = (0.0015 * (self._basic_diameter ** (1/3))) + (0.0015 * (self._thread_engagement ** (1/2))) + (0.0150 * (self._thread_pitch ** (2/3)))
 
 def __repr__(self):
   if self.unit:
