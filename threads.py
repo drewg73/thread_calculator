@@ -1,97 +1,99 @@
-class Threads():
-    def __init__(self, basic_diameter, thread_pitch, thread_class, thread_designation=None, thread_engagement=None):
-        self.unit = True # True for UN, False for ISO
-        self._basic_diameter = basic_diameter
-        if self.unit:
-            self._thread_pitch = 1 / thread_pitch
-        else:
-            self._thread_pitch = thread_pitch
-        if thread_engagement:
-            if thread_engagement > 1.5 * basic_diameter:
-                raise ValueError("Formulas used are not suitable for applications having lengths of engagement over 1.50 times the thread diameter")
-            else:
-                self._thread_engagement = thread_engagement
-        else:
-            self._thread_engagement = 1.5 * self._basic_diameter 
-        self._thread_designation = thread_designation
+import math
+
+def truncate(f, n):
+    return math.trunc(f * (10 ** n)) / 10 ** n
+
+# intent is to have multiple thread profiles
+class Thread():
+    def __init__(self, size, pitch):
+        self._size = size
+        self._pitch = pitch
+
+class United_National(Thread):
+    def __init__(self, size, pitch, series, thread_class, engagement=None):
+        super().__init__(size, (1/pitch))
+        self._series = series
         self._thread_class = thread_class
-        self._height = 0.86602540 * self._thread_pitch
-        self._Td2_2A = (0.0015 * (self._basic_diameter ** (1/3))) + (0.0015 * (self._thread_engagement ** (1/2))) + (0.0150 * (self._thread_pitch ** (2/3)))
-
-
-    def __repr__(self):
-        if self.unit:
-            return f"{self._basic_diameter:.3f}-{1 / self._thread_pitch:.0f} {self._thread_designation}-{self._thread_class}"
-        return f"M{self._basic_diameter} x {self._thread_pitch} - {self._thread_class}"
-
-    def get_basic_dimensions(self):
-        basic_pitch = self._basic_diameter - (2 * (0.375 * self._height))
-        basic_minor = self._basic_diameter - (2 * (0.625 * self._height))
-        # Calculating basic minor for UNR designation
-        if self._thread_class.endswith("A") and "R" in self._thread_designation:
-            basic_minor -= (.108 * (1 / self._thread_pitch))
-        return (basic_minor, basic_pitch)
-    
-    def calculate_major_diameter_tolerance(self):
-        if self._thread_class.endswith("A"):
-            if self._thread_class.startswith("1"):
-                return 0.0900 * (self._thread_pitch ** (2/3))
-            if self._thread_class.startswith("2") or self._thread_class.startswith("3"):
-                return 0.0600 * (self._thread_pitch ** (2/3))
-            raise ValueError("Invalid Thread Class")
-        if self._thread_class.endswith("B"):
-            return 0.14433757 + self.calculate_pitch_diameter_tolerance()
-        raise ValueError("Invalid Thread Class")
+        if engagement:
+            self._engagement = engagement
+        else:
+            # a majority of the tolerance calcs are applicable for thread engagement up to 1.5 * D
+            self._engagement = size * 1.5
         
-    def calculate_minor_diameter_tolerance(self):
-        if self._thread_class.endswith("A"):
-            if "R" in self._thread_designation:
-                return self.calculate_pitch_diameter_tolerance() + (0.10825318 * self._thread_pitch)
-            return self.calculate_pitch_diameter_tolerance() + (0.21650635 * self._thread_pitch)
-        if self._thread_class.endswith("B"):
-            if self._thread_class.startswith("1") or self._thread_class.startswith("2"):
-                if self._basic_diameter < 0.250:
-                    minor_dia_tolerance_max = 0.39400 * self._thread_pitch
-                    minor_dia_tolerance_min = (0.2500 * self._thread_pitch) - (0.400 * (self._thread_pitch ** 2))
-                    minor_dia_tolerance_actual = ((0.0500 * (self._thread_pitch ** (2/3))) + 0.030 - (self._thread_pitch / self._basic_diameter)) - 0.002
-                    if minor_dia_tolerance_actual > minor_dia_tolerance_max:
-                        return minor_dia_tolerance_max
-                    if minor_dia_tolerance_actual < minor_dia_tolerance_min:
-                        return minor_dia_tolerance_min
-                    return minor_dia_tolerance_actual
-                if self._basic_diameter >= 0.250:
-                    if (self._thread_pitch / 1) <= 80 and (self._thread_pitch / 1) >= 4:
-                        return (0.2500 * self._thread_pitch) - (0.400 * (self._thread_pitch ** 2))
-                    if (self._thread_pitch / 1) < 4:
-                        return 0.1500 * self._thread_pitch
-            if self._thread_class.startswith("3"):
-                minor_dia_tolerance_max = 0.39400 * self._thread_pitch
-                if (self._thread_pitch / 1) <= 80 and (self._thread_pitch / 1) >= 13:
-                    minor_dia_tolerance_min = (0.2300 * self._thread_pitch) - (1.500 * (self._thread_pitch ** 2))
-                elif (self._thread_pitch / 1) < 13:
-                    minor_dia_tolerance_min = (.1200 * self._thread_pitch) 
-                minor_dia_tolerance_actual = ((0.0500 * (self._thread_pitch ** (2/3))) + (0.030 * (self._thread_pitch / self._basic_diameter))) - 0.002
-                if minor_dia_tolerance_actual > minor_dia_tolerance_max:
-                    return minor_dia_tolerance_max
-                if minor_dia_tolerance_actual < minor_dia_tolerance_min:
-                    return minor_dia_tolerance_min
-                return minor_dia_tolerance_actual
+    def __repr__(self):
+        return f"{format(self._size, '.3f')}-{format((1/self._pitch), '.0f')} {self._series}-{self._thread_class}"
 
-    def calculate_pitch_diameter_tolerance(self):
+    # All calc functions are interprited from ASME B1.1-2019 section 5 
+    def calc_basic_dimensions(self):
         if self._thread_class.endswith("A"):
-            if self._thread_class.startswith("1"):
-                return 1.5000 * round(self._Td2_2A, 6)
-            if self._thread_class.startswith("2"):
-                return self._Td2_2A
-            if self._thread_class.startswith("3"):
-                return 0.7500 * round(self._Td2_2A, 6)
-            raise ValueError("Invalide Thread Class")
-        if self._thread_class.endswith("B"):
-            if self._thread_class.startswith("1"):
-                return 1.9500 * round(self._Td2_2A, 6)
-            if self._thread_class.startswith("2"):
-                return 1.3000 * round(self._Td2_2A, 6)
-            if self._thread_class.startswith("3"):
-                return 0.9750 * round(self._Td2_2A, 6)
-            raise ValueError("Invalid Thread Class")
-        raise ValueError("Invalid Thread Class")
+            major = self._size
+            pitch = major - (2 * (0.32475953 * self._pitch))
+            minor = major - (2 * (0.54126588 * self._pitch))
+        return list(map(lambda x: format(x, ".4f"), (major, pitch, minor))) 
+        
+    def calc_allowance(self):
+        allowance = 0
+        if self._thread_class == "1A" or self._thread_class == "2A":
+            td2_2a = truncate(((0.0015 * (self._size ** (1/3))) + (0.0015 * (self._engagement ** (1/2))) + (0.0150 * (self._pitch ** (2/3)))), 6)
+            allowance = 0.300 * td2_2a
+        return round(allowance, 4)
+
+    def calc_major_tolerance(self):
+        if self._thread_class == "1A":
+            major_tolerance = 0.0900 * (self._pitch ** (2/3))
+        elif self._thread_class == "2A" or self._thread_class == "3A":
+            major_tolerance = 0.0600 * (self._pitch ** (2/3))
+        elif self._thread_class.endswith("B"):
+            major_tolerance = 0.14433757 + self.calc_pitch_tolerance()
+        else:
+            raise ValueError("Invalid UN Thread Class")
+        return round(major_tolerance, 4)
+
+    # not accounting for UNJ threads
+    def calc_minor_tolerance(self):
+        if self._thread_class.endswith("A"):
+            if "R" in self._series:
+                minor_tolerance = self.calc_pitch_tolerance() + (0.10825318 * self._pitch)
+            else:
+                minor_tolerance = self.calc_pitch_tolerance() + (0.21650635 * self._pitch)
+            return round(minor_tolerance, 4)
+        if self._thread_class == "1B" or self._thread_class == "2B":
+            if self._size < 0.250:
+                minor_tolerance = ((0.0500 * (self._pitch ** (2/3))) - 0.030 - (self._pitch / self._size)) - 0.002
+                if minor_tolerance > 0.39500 * self._pitch:
+                    minor_tolerance = 0.39500 * self._pitch
+                elif minor_tolerance < ((0.2500 * self._pitch) - (.400 * (self._pitch ** 2))):
+                    minor_tolerance = ((0.2500 * self._pitch) - (.400 * (self._pitch ** 2)))
+            else:
+                if (1/self._pitch) <= 80 and (1/self._pitch) >= 4:
+                    minor_tolerance = ((0.2500 * self._pitch) - (.400 * (self._pitch ** 2)))
+                else:
+                    minor_tolerance = 0.1500 * self._pitch
+            return round(minor_tolerance, 4)
+        if self._thread_class == "3B":
+            minor_tolerance = ((0.0500 * (self._pitch ** (2/3))) + (0.0300 * (self._pitch / self._size))) - 0.002
+            if minor_tolerance > 0.39400 * self._pitch:
+                minor_tolerance = 0.39400 * self._pitch
+            else:
+                if (1/self._pitch) <= 80 and (1/self._pitch) >= 13:
+                    if minor_tolerance < ((0.2300 * self._pitch) - (1.500 * (self._pitch ** 2))):
+                        minor_tolerance = ((0.2300 * self._pitch) - (1.500 * (self._pitch ** 2)))
+                else:
+                    if minor_tolerance < (0.1200 * self._pitch):
+                        minor_tolerance = (0.1200 * self._pitch)
+            return round(minor_tolerance, 4)
+            
+    def calc_pitch_tolerance(self):
+        pitch_tolerance = (0.0015 * (self._size ** (1/3))) + (0.0015 * (self._engagement ** (1/2))) + (0.0150 * (self._pitch ** (2/3)))
+        if self._thread_class == "1A":
+            pitch_tolerance = 1.5000 * truncate(pitch_tolerance, 6)
+        elif self._thread_class == "3A":
+            pitch_tolerance = 0.7500 * truncate(pitch_tolerance, 6)
+        elif self._thread_class == "1B":
+            pitch_tolerance = 1.9500 * truncate(pitch_tolerance, 6)
+        elif self._thread_class == "2B":
+            pitch_tolerance = 1.3000 * truncate(pitch_tolerance, 6)
+        elif self._thread_class == "3B":
+            pitch_tolerance == 0.9750 * truncate(pitch_tolerance, 6)
+        return round(pitch_tolerance, 4) 
+    
