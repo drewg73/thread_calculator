@@ -29,7 +29,7 @@ class United_National(Thread):
             major = self._size
             pitch = major - (2 * (0.32475953 * self._pitch))
             minor = major - (2 * (0.54126588 * self._pitch))
-        return list(map(lambda x: format(x, ".4f"), (major, pitch, minor))) 
+        return list(map(lambda x: format(x, ".4f") + " in", (major, pitch, minor))) 
         
     def calc_allowance(self):
         allowance = 0
